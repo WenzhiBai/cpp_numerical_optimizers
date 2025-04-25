@@ -1,0 +1,9 @@
+Compile the simulation code:
+g++ -std=c++17 -O2 /home/itadmin/MINS/catkin_ws/src/MINS/VIW_Fusion/Simulation/LineOptimizationSim.cpp -I /usr/include/eigen3 -o /
+home/itadmin/MINS/catkin_ws/src/MINS/VIW_Fusion/Simulation/line_sim
+
+Run the simulation:
+./catkin_ws/src/MINS/VIW_Fusion/Simulation/line_sim
+
+Plot the error figures:
+python3 error_plot.py

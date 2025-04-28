@@ -11,5 +11,7 @@ find_package(Ceres REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${CERES_INCLUDE_DIRS})
 
-add_executable(line_sim src/LineOptimizationSim.cpp)
-target_link_libraries(line_sim ${CERES_LIBRARIES})
+add_executable(line_opt_ceres src/LineOptimizationCeres.cpp)
+target_link_libraries(line_opt_ceres ${CERES_LIBRARIES})
+
+add_executable(line_opt_sim src/LineOptimizationSim.cpp)

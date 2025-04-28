@@ -10,4 +10,3 @@ plt.ylabel("Error")
 plt.title("Optimization Error vs Iteration")
 plt.grid(True)
 plt.show()
-·

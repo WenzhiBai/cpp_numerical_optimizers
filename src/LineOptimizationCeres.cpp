@@ -2,6 +2,7 @@
 #include <Eigen/Eigen>
 #include <ceres/ceres.h>
 #include <iostream>
+#include <fstream>
 
 struct Camera {
   Eigen::Matrix3d K;    // 内参
@@ -225,13 +226,12 @@ int main(int argc, char **argv) {
             << plucker_params[3] << " " << plucker_params[4] << " "
             << plucker_params[5] << "\n";
 
-  // std::ofstream error_file("error_log.txt");
-  // // Iterate through the summary's iteration details
-  // for (size_t i = 0; i < summary.iterations.size(); ++i) {
-  //   error_file << i << " " << summary.iterations[i].cost << std::endl;
-  // }
-  // error_file.close();
-  // std::cout << "Ceres summary saved to: " << error_file << std::endl;
+  std::ofstream error_file("error_log.txt");
+  // Iterate through the summary's iteration details
+  for (size_t i = 0; i < summary.iterations.size(); ++i) {
+    error_file << i << " " << summary.iterations[i].cost << std::endl;
+  }
+  error_file.close();
 
   return 0;
 }

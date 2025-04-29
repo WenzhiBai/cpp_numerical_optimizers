@@ -216,24 +216,29 @@ int main(int argc, char **argv) {
             << std::endl;
 
   // Initialize optimization variables
-  Eigen::Matrix<double, 3, 2> A;
-  A.col(0) = n;
-  A.col(1) = v;
-  Eigen::HouseholderQR<Eigen::Matrix<double, 3, 2>> qr(A);
-  Eigen::Matrix3d U = qr.householderQ();
-  Eigen::Matrix<double, 3, 2> R = qr.matrixQR().triangularView<Eigen::Upper>();
-  double w1 = R(0, 0), w2 = R(1, 1);
-  Eigen::Matrix<double, 2, 2> W;
-  W << w1, -w2, w2, w1;
+  // Eigen::Matrix<double, 3, 2> A;
+  // A.col(0) = n;
+  // A.col(1) = v;
+  // Eigen::HouseholderQR<Eigen::Matrix<double, 3, 2>> qr(A);
+  // Eigen::Matrix3d U = qr.householderQ();
+  // Eigen::Matrix<double, 3, 2> R =
+  // qr.matrixQR().triangularView<Eigen::Upper>(); double w1 = R(0, 0), w2 =
+  // R(1, 1); Eigen::Matrix<double, 2, 2> W; W << w1, -w2, w2, w1;
 
-  Eigen::Matrix<double, 4, 1> dx;
-  dx << 0.001, 0.002, 0.002, 0.001;
+  // Eigen::Matrix<double, 4, 1> dx;
+  // dx << 0.001, 0.002, 0.002, 0.001;
 
-  UpdateOrthonomal(dx, U, W, U, W);
+  // UpdateOrthonomal(dx, U, W, U, W);
 
-  Eigen::Vector3d v_est, n_est;
-  n_est = W(0, 0) * U.col(0);
-  v_est = W(1, 0) * U.col(1);
+  // Eigen::Vector3d v_est, n_est;
+  // n_est = W(0, 0) * U.col(0);
+  // v_est = W(1, 0) * U.col(1);
+  Eigen::Vector3d P1_est = P1 + Eigen::Vector3d(0.1, -0.1, 0.1);
+  Eigen::Vector3d P2_est = P2 + Eigen::Vector3d(0.01, 0.01, -0.01);
+  Eigen::Matrix<double, 6, 1> plucker_est =
+      ComputePluckerLine(P1_est, P2_est); // Plücker line representation
+  Eigen::Vector3d v_est = plucker_est.tail<3>();
+  Eigen::Vector3d n_est = plucker_est.head<3>();
 
   //********* Ceres Optimization ************/
   ceres::Problem problem;
@@ -241,6 +246,12 @@ int main(int argc, char **argv) {
   // Combine v_est and n_est into a single parameter block (Plücker line)
   double plucker_params[6] = {n_est.x(), n_est.y(), n_est.z(),
                               v_est.x(), v_est.y(), v_est.z()};
+
+  // print plucker_params
+  std::cout << "Initial Plücker line (n | v): " << plucker_params[0] << " "
+            << plucker_params[1] << " " << plucker_params[2] << " | "
+            << plucker_params[3] << " " << plucker_params[4] << " "
+            << plucker_params[5] << "\n";
 
   // Add the LineManifold to ensure the Plücker line constraints are respected
   problem.AddParameterBlock(plucker_params, 6, new ceres::LineManifold<3>());
@@ -262,7 +273,7 @@ int main(int argc, char **argv) {
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::DENSE_QR;
   options.minimizer_progress_to_stdout = true;
-  options.max_num_iterations = 1000;
+  options.max_num_iterations = 200;
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
@@ -273,6 +284,14 @@ int main(int argc, char **argv) {
             << plucker_params[1] << " " << plucker_params[2] << " | "
             << plucker_params[3] << " " << plucker_params[4] << " "
             << plucker_params[5] << "\n";
+
+  // std::ofstream error_file("error_log.txt");
+  // // Iterate through the summary's iteration details
+  // for (size_t i = 0; i < summary.iterations.size(); ++i) {
+  //   error_file << i << " " << summary.iterations[i].cost << std::endl;
+  // }
+  // error_file.close();
+  // std::cout << "Ceres summary saved to: " << error_file << std::endl;
 
   return 0;
 }

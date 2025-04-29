@@ -27,8 +27,7 @@ ProjectPluckerToImageLine(const Eigen::Matrix3d &K, const Eigen::Matrix3d &R_wc,
       T(0), -p_wc.cast<T>().x(), -p_wc.cast<T>().y(), p_wc.cast<T>().x(), T(0);
 
   // Transform Plücker line to camera frame
-  Eigen::Matrix<T, 3, 1> n_cam =
-      R_wc.cast<T>() * n - R_wc.cast<T>() * skew * v;
+  Eigen::Matrix<T, 3, 1> n_cam = R_wc.cast<T>() * n - R_wc.cast<T>() * skew * v;
   Eigen::Matrix<T, 3, 1> v_cam = R_wc.cast<T>() * v;
 
   // Project to image space
@@ -152,23 +151,38 @@ Eigen::Vector2d ProjectPoint(const Eigen::Matrix3d &K,
   return Eigen::Vector2d(p[0] / p[2], p[1] / p[2]);
 }
 
+Eigen::Matrix<double, 6, 1> ComputePluckerLine(const Eigen::Vector3d &P1,
+                                               const Eigen::Vector3d &P2) {
+  Eigen::Matrix<double, 6, 1> plucker;
+
+  // Direction vector (v): normalized vector from P1 to P2
+  Eigen::Vector3d v = P2 - P1;
+
+  // Moment vector (n): cross product of P1 and v
+  Eigen::Vector3d n = P1.cross(P2);
+
+  // Combine n and v into the Plücker line representation
+  plucker.head<3>() = n;
+  plucker.tail<3>() = v;
+
+  return plucker;
+}
+
 int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);
 
   // Camera intrinsic parameters
-  Eigen::Matrix3d K, K_line;
-  K << 500, 0, 320, 0, 500, 240, 0, 0, 1;
-
   double fu = 500, fv = 500, cu = 320, cv = 240;
+  Eigen::Matrix3d K, K_line;
+  K << fu, 0, cu, 0, fv, cv, 0, 0, 1;
   K_line << fv, 0, 0, 0, fu, 0, -fv * cu, -fu * cv, fu * fv;
 
   // Define a line in Plücker coordinates
   Eigen::Vector3d P1(-30, -20, 40), P2(10, 60, 80);
-  Eigen::Vector3d v = (P2 - P1).normalized();
-  Eigen::Vector3d n = P1.cross(v);
-  Eigen::Matrix<double, 6, 1> plucker;
-  plucker.head<3>() = n;
-  plucker.tail<3>() = v;
+  Eigen::Matrix<double, 6, 1> plucker =
+      ComputePluckerLine(P1, P2); // Plücker line representation
+  Eigen::Vector3d v = plucker.tail<3>();
+  Eigen::Vector3d n = plucker.head<3>();
 
   std::cout << "Initial Plücker line (n | v): " << plucker.transpose()
             << std::endl;
@@ -238,7 +252,7 @@ int main(int argc, char **argv) {
 
     problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<LineReprojectionError, 2, 6>(
-            new LineReprojectionError(obs.first, obs.second, K, cam.R_wc,
+            new LineReprojectionError(obs.first, obs.second, K_line, cam.R_wc,
                                       cam.p_wc)),
         nullptr, // No loss function
         plucker_params);

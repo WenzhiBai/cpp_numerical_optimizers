@@ -10,13 +10,6 @@ struct Camera {
 };
 
 template <typename T>
-Eigen::Matrix<T, 3, 3> SkewSymmetric(const Eigen::Matrix<T, 3, 1> &v) {
-  Eigen::Matrix<T, 3, 3> skew;
-  skew << T(0), -v.z(), v.y(), v.z(), T(0), -v.x(), -v.y(), v.x(), T(0);
-  return skew;
-}
-
-template <typename T>
 Eigen::Matrix<T, 3, 1>
 ProjectPluckerToImageLine(const Eigen::Matrix3d &K, const Eigen::Matrix3d &R_wc,
                           const Eigen::Vector3d &p_wc,
@@ -85,38 +78,6 @@ struct LineReprojectionError {
   const Eigen::Vector3d p_wc_;
 };
 
-void UpdateOrthonomal(const Eigen::Matrix<double, 4, 1> &dx, Eigen::Matrix3d &U,
-                      Eigen::Matrix<double, 2, 2> &W, Eigen::Matrix3d &U_temp,
-                      Eigen::Matrix<double, 2, 2> &W_temp) {
-  Eigen::Vector3d du = dx.head<3>();
-  double dw = dx(3);
-
-  // update U
-  Eigen::Matrix3d dU = Eigen::Matrix3d::Identity();
-  double c1 = cos(du(0)), s1 = sin(du(0));
-  double c2 = cos(du(1)), s2 = sin(du(1));
-  double c3 = cos(du(2)), s3 = sin(du(2));
-
-  Eigen::Matrix3d Rx;
-  Rx << 1, 0, 0, 0, c1, -s1, 0, s1, c1;
-
-  Eigen::Matrix3d Ry;
-  Ry << c2, 0, -s2, 0, 1, 0, s2, 0, c2;
-
-  Eigen::Matrix3d Rz;
-  Rz << c3, -s3, 0, s3, c3, 0, 0, 0, 1;
-  U_temp = Rx * Ry * Rz * U;
-  // U_temp = U + U * SkewSymmetric(du);
-
-  // update W
-  Eigen::Matrix2d dW_matrix;
-  dW_matrix << cos(dw), -sin(dw), sin(dw), cos(dw);
-  W_temp = dW_matrix * W;
-  // dW_matrix << 0, -dw,
-  //             dw, 0;
-  // W_temp = W + W * dW_matrix;
-}
-
 std::vector<Camera> GenerateCameras(int N, const Eigen::Matrix3d &K) {
   std::vector<Camera> cams;
   for (int i = 0; i < N; ++i) {
@@ -181,9 +142,8 @@ int main(int argc, char **argv) {
   Eigen::Vector3d P1(-30, -20, 40), P2(10, 60, 80);
   Eigen::Matrix<double, 6, 1> plucker =
       ComputePluckerLine(P1, P2); // Plücker line representation
-  Eigen::Vector3d v = plucker.tail<3>();
   Eigen::Vector3d n = plucker.head<3>();
-
+  Eigen::Vector3d v = plucker.tail<3>();
   std::cout << "Initial Plücker line (n | v): " << plucker.transpose()
             << std::endl;
 
@@ -198,16 +158,13 @@ int main(int argc, char **argv) {
     Eigen::Vector2d p1_proj = ProjectPoint(K, cams[i].R_wc, cams[i].p_wc, P1);
     Eigen::Vector2d p2_proj = ProjectPoint(K, cams[i].R_wc, cams[i].p_wc, P2);
 
-    Eigen::Vector2d p1_obs = p1_proj; // Simulated observation
-    Eigen::Vector2d p2_obs = p2_proj;
-
-    line_observations.emplace_back(p1_obs, p2_obs);
+    line_observations.emplace_back(p1_proj, p2_proj);
 
     Eigen::Matrix<double, 3, 1> line = ProjectPluckerToImageLine<double>(
         K_line, cams[i].R_wc, cams[i].p_wc, n, v);
 
-    double e1 = PointLineDistance(line, p1_obs);
-    double e2 = PointLineDistance(line, p2_obs);
+    double e1 = PointLineDistance(line, p1_proj);
+    double e2 = PointLineDistance(line, p2_proj);
 
     total_error += e1 * e1 + e2 * e2;
   }
@@ -216,23 +173,6 @@ int main(int argc, char **argv) {
             << std::endl;
 
   // Initialize optimization variables
-  // Eigen::Matrix<double, 3, 2> A;
-  // A.col(0) = n;
-  // A.col(1) = v;
-  // Eigen::HouseholderQR<Eigen::Matrix<double, 3, 2>> qr(A);
-  // Eigen::Matrix3d U = qr.householderQ();
-  // Eigen::Matrix<double, 3, 2> R =
-  // qr.matrixQR().triangularView<Eigen::Upper>(); double w1 = R(0, 0), w2 =
-  // R(1, 1); Eigen::Matrix<double, 2, 2> W; W << w1, -w2, w2, w1;
-
-  // Eigen::Matrix<double, 4, 1> dx;
-  // dx << 0.001, 0.002, 0.002, 0.001;
-
-  // UpdateOrthonomal(dx, U, W, U, W);
-
-  // Eigen::Vector3d v_est, n_est;
-  // n_est = W(0, 0) * U.col(0);
-  // v_est = W(1, 0) * U.col(1);
   Eigen::Vector3d P1_est = P1 + Eigen::Vector3d(0.1, -0.1, 0.1);
   Eigen::Vector3d P2_est = P2 + Eigen::Vector3d(0.01, 0.01, -0.01);
   Eigen::Matrix<double, 6, 1> plucker_est =

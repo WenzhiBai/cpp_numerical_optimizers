@@ -43,7 +43,7 @@ T PointLineDistance(const Eigen::Matrix<T, 3, 1> &line,
   // Point-line distance formula
   T denom = sqrt(a * a + b * b);
   T distance = p_s_h.dot(line) / denom;
-  return abs(distance);
+  return distance;
 }
 
 // Define a simple cost function for optimization
